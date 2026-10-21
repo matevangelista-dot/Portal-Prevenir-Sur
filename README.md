@@ -6,6 +6,10 @@ App web para cargar desde el celular, en el lugar, estudios de higiene y segurid
 - **Carga de fuego** – Dec. 351/79 Anexo VII (Cap. 18): carga de fuego por sector, riesgo (Tabla 2.1), resistencia al fuego (Cuadros 2.2.1 / 2.2.2), potencial extintor (Tablas 1 y 2) y mínimo de 1 extintor cada 200 m²
 - **Puesta a tierra** – Res. SRT 900/15: protocolo de 4 hojas (campos 1 a 41), tomas de tierra con límite AEA 90364-7-771 (40 Ω para DD ≤ 30 mA), continuidad de masas y prueba de disyuntores (½ IΔn, 1 IΔn ≤ 300 ms, 5 IΔn ≤ 40 ms, escalón)
 
+- **Ruido** – Res. SRT 85/12 (protocolo de 42 campos) con límites de la Res. MTEySS 295/03, Anexo V: 85 dBA para 8 h, tasa de intercambio 3 dB y 140 dBC de pico; LAeq,Te, suma de fracciones por tramos o dosimetría
+- **Vibraciones** – Res. MTEySS 295/03, Anexo V: mano-brazo (componente dominante: 4 / 6 / 8 / 12 m/s² según duración diaria) y cuerpo entero (ejes Z y X/Y contra las curvas por tiempo de exposición)
+- **Termohigrometría y estrés térmico** – Calor: Res. SRT 30/2023 (TGBH ISO 7243, ajuste por ropa, VLP/VLA según tasa metabólica, régimen trabajo/descanso). Frío: Res. MTEySS 295/03 (temperatura equivalente por viento, ropa y guantes)
+
 ### Iluminación
 
 - Grilla por local con índice K = (L·A)/[Hm·(L+A)] y puntos mínimos (x+2)²
@@ -75,6 +79,7 @@ index.html            página
 styles.css            estilos
 app.js                lógica general, iluminación, sincronización, Excel
 estudios.js           carga de fuego y puesta a tierra
+estudios2.js          ruido, vibraciones y estrés térmico
 config.js             URL y clave pública de Supabase
 sw.js                 funcionamiento sin conexión
 manifest.webmanifest  instalación como app

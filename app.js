@@ -587,13 +587,13 @@ function vList(){
  ${L.length?`<div class="mlist">${L.map(x=>{const d=x.data;let tot,med,bad,warn;
    if(d.tipo&&MODS[d.tipo]){const su=MODS[d.tipo].summary(d);tot=su.tot;med=su.done;bad=su.bad;warn=su.warn}
    else{const st=d.puntos.map(status);tot=d.puntos.length;med=d.puntos.filter(p=>calc(p).n).length;bad=st.filter(s=>s.cls==="bad").length;warn=st.filter(s=>s.cls==="warn").length}
-   const tipoTxt=d.tipo&&MODS[d.tipo]?MODS[d.tipo].nombre:"Iluminación",unidad=d.tipo==="fuego"?"sectores":d.tipo==="pat"?"tomas":"puntos";
+   const tipoTxt=d.tipo&&MODS[d.tipo]?MODS[d.tipo].nombre:"Iluminación",unidad=(d.tipo&&MODS[d.tipo]&&MODS[d.tipo].unidad)||"puntos";
    return`<div class="mcard"><div style="min-width:0"><div class="t">${esc(d.meta.razon||"Empresa sin nombre")}</div>
      <div class="s"><b style="color:var(--acc)">${tipoTxt}</b> · ${fdate(d.meta.fechaMed)||"sin fecha"} · ${med}/${tot} ${unidad}</div></div>
      <div class="row" style="justify-content:flex-end">${bad?`<span class="pill bad">${bad} no cumplen</span>`:""}${warn?`<span class="pill warn">${warn} obs.</span>`:""}${tot&&med===tot&&!bad&&!warn?`<span class="pill ok">Cumple</span>`:""}</div>
      <div class="bar"><i style="width:${tot?Math.round(med/tot*100):0}%"></i></div>
      <div class="acts"><button class="btn sm p" data-open="${x.id}">Abrir</button><button class="btn sm" data-rep="${x.id}">Repetir estudio</button><button class="btn sm d" data-del="${x.id}">Eliminar</button></div></div>`}).join("")}</div>`
- :`<div class="card empty"><b>Todavía no tenés estudios</b>Creá uno nuevo (iluminación, carga de fuego o puesta a tierra), o importá el Excel del protocolo de iluminación del año anterior para comparar.</div>`}
+ :`<div class="card empty"><b>Todavía no tenés estudios</b>Creá uno nuevo (iluminación, carga de fuego, puesta a tierra, ruido, vibraciones o estrés térmico), o importá el Excel del protocolo de iluminación del año anterior para comparar.</div>`}
  <hr class="s">
  ${CLOUD?`<div class="row"><span class="muted" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">Sesión: ${esc(session&&session.user.email)}</span><button class="btn sm" id="logout">Cerrar sesión</button></div>`
  :`<div class="banner warn">Modo local: los datos quedan solo en este dispositivo. Para guardarlos en la nube configurá Supabase (ver README).</div>`}`;
@@ -629,9 +629,7 @@ function chooseNew(){
     s.innerHTML=`<div class="dlg" role="dialog" aria-modal="true"><p style="font-weight:700;font-size:17px;margin-bottom:10px">Nuevo estudio</p>
      ${Object.keys(emp).length?`<label class="f" style="margin-bottom:12px"><span>Empresa</span><select id="nEmp"><option value="">Empresa nueva (cargar datos)</option>${Object.entries(emp).map(([k,id])=>`<option value="${id}">${esc(k)}</option>`).join("")}</select></label>`:""}
      <div class="stack">
-      <button class="btn p wide" data-t="ilum" style="justify-content:flex-start;min-height:56px;text-align:left">💡 Iluminación<span style="font-weight:400;opacity:.85;margin-left:auto;font-size:13px">Res. SRT 84/12</span></button>
-      <button class="btn p wide" data-t="fuego" style="justify-content:flex-start;min-height:56px;text-align:left">🔥 Carga de fuego<span style="font-weight:400;opacity:.85;margin-left:auto;font-size:13px">Dec. 351/79 Anexo VII</span></button>
-      <button class="btn p wide" data-t="pat" style="justify-content:flex-start;min-height:56px;text-align:left">⚡ Puesta a tierra<span style="font-weight:400;opacity:.85;margin-left:auto;font-size:13px">Res. SRT 900/15</span></button>
+      ${[["ilum","💡 Iluminación","Res. SRT 84/12"],["fuego","🔥 Carga de fuego","Dec. 351/79 Anexo VII"],["pat","⚡ Puesta a tierra","Res. SRT 900/15"],["ruido","🔊 Ruido","Res. SRT 85/12"],["vib","📳 Vibraciones","Res. 295/03"],["termo","🌡️ Termohigrometría / estrés térmico","Res. SRT 30/23"]].map(([t,n,r])=>`<button class="btn p wide" data-t="${t}" style="justify-content:flex-start;min-height:52px;text-align:left">${n}<span style="font-weight:400;opacity:.85;margin-left:auto;font-size:12.5px">${r}</span></button>`).join("")}
       <button class="btn wide" data-t="">Cancelar</button></div></div>`;
     s.addEventListener("click",e=>{const b=e.target.closest("[data-t]");if(b||e.target===s){const sel=$("#nEmp",s);s.remove();res(b&&b.dataset.t?{tipo:b.dataset.t,from:sel?sel.value:""}:null)}});
     document.body.appendChild(s);

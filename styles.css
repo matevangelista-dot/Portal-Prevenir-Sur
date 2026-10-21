@@ -114,7 +114,7 @@ ul.chk-list{margin:0;padding-left:18px;font-size:14px} ul.chk-list li{margin:3px
 hr.s{border:0;border-top:1px solid var(--line);margin:12px 0}
 /* diálogo y aviso */
 .scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;display:flex;align-items:flex-end;justify-content:center;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
-.dlg{background:var(--card);color:var(--ink);border-radius:18px;padding:18px;max-width:460px;width:100%}
+.dlg{background:var(--card);color:var(--ink);border-radius:18px;padding:18px;max-width:460px;width:100%;max-height:calc(100vh - 32px);overflow-y:auto}
 .dlg p{margin:0 0 14px;white-space:pre-line}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--nav) + 14px + env(safe-area-inset-bottom,0px));z-index:70;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:99px;font-size:14px;font-weight:600;max-width:calc(100% - 32px);text-align:center}
 #print{display:none}
