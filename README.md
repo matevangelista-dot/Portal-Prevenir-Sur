@@ -1,6 +1,12 @@
-# Protocolo de Iluminación
+# Estudios HyS de Campo
 
-App web para cargar desde el celular, en el lugar, las mediciones de iluminación según la **Res. SRT 84/12** y el **Dec. 351/79 Anexo IV**, y descargar el protocolo en Excel.
+App web para cargar desde el celular, en el lugar, estudios de higiene y seguridad y descargar el informe en Excel:
+
+- **Iluminación** – Res. SRT 84/12 y Dec. 351/79 Anexo IV
+- **Carga de fuego** – Dec. 351/79 Anexo VII (Cap. 18): carga de fuego por sector, riesgo (Tabla 2.1), resistencia al fuego (Cuadros 2.2.1 / 2.2.2), potencial extintor (Tablas 1 y 2) y mínimo de 1 extintor cada 200 m²
+- **Puesta a tierra** – Res. SRT 900/15: protocolo de 4 hojas (campos 1 a 41), tomas de tierra con límite AEA 90364-7-771 (40 Ω para DD ≤ 30 mA), continuidad de masas y prueba de disyuntores (½ IΔn, 1 IΔn ≤ 300 ms, 5 IΔn ≤ 40 ms, escalón)
+
+### Iluminación
 
 - Grilla por local con índice K = (L·A)/[Hm·(L+A)] y puntos mínimos (x+2)²
 - Teclado numérico en pantalla para cargar lecturas mientras se mide
@@ -20,7 +26,7 @@ Es un sitio estático (HTML + JS, sin compilación). Los datos se guardan en **S
 
 1. Entrá a <https://supabase.com> → **Start your project** → ingresá con tu cuenta de GitHub.
 2. **New project**: nombre `protocolo-iluminacion`, elegí una contraseña de base de datos (guardala) y la región **South America (São Paulo)** → **Create new project**. Tarda un par de minutos.
-3. Menú izquierdo → **SQL Editor** → **New query** → pegá todo el contenido de [`schema.sql`](schema.sql) → **Run**. Tiene que decir *Success*.
+3. Menú izquierdo → **SQL Editor** → **New query** → pegá todo el contenido de [`supabase/schema.sql`](supabase/schema.sql) → **Run**. Tiene que decir *Success*.
 4. Menú izquierdo → **Project Settings** → **API**. Copiá:
    - **Project URL** (algo como `https://abcd1234.supabase.co`)
    - **anon public** key (una clave larga que empieza con `eyJ...`)
@@ -67,11 +73,12 @@ Si la app ya se abrió una vez con internet, funciona sin señal: cada lectura s
 ```
 index.html            página
 styles.css            estilos
-app.js                lógica (cálculos, pantallas, sincronización, Excel)
+app.js                lógica general, iluminación, sincronización, Excel
+estudios.js           carga de fuego y puesta a tierra
 config.js             URL y clave pública de Supabase
 sw.js                 funcionamiento sin conexión
 manifest.webmanifest  instalación como app
-schema.sql            tabla y reglas de seguridad
+supabase/schema.sql   tabla y reglas de seguridad
 vendor/               librerías (Supabase JS 2.45.4, xlsx-js-style 1.2.0)
 ```
 

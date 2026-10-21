@@ -1,8 +1,8 @@
 /* Service worker: permite abrir la app sin conexión en el lugar de medición.
    Cambiá VERSION en cada despliegue para forzar la actualización. */
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = "iluminacion-" + VERSION;
-const SHELL = ["/", "/index.html", "/styles.css", "/app.js", "/config.js", "/manifest.webmanifest",
+const SHELL = ["/", "/index.html", "/styles.css", "/app.js", "/estudios.js", "/config.js", "/manifest.webmanifest",
   "/supabase.js", "/591.supabase.js", "/xlsx-js-style.js", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", e => {

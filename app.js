@@ -20,7 +20,7 @@ const uid=()=>Math.random().toString(36).slice(2,10);
 const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
 function newPoint(n,o={}){return Object.assign({id:uid(),n,hora:"",sector:"",puesto:"",tipoIlum:"Mixta",fuente:"Descarga",ilum:"General",
   req:"t3",reqMin:"",reqMax:"",metodo:"grilla",L:"",A:"",Hm:"",filas:3,cols:3,lect:[],egen:"",obs:"",prev:null},o)}
-function valid(d){return !!(d&&d.meta&&Array.isArray(d.puntos))}
+function valid(d){return !!(d&&d.meta&&(Array.isArray(d.puntos)||Array.isArray(d.sectores)||Array.isArray(d.tomas)))}
 let view="list",curId=null,S=null,session=null,lib={},localOK=true,saveT=null;
 const net={state:"idle",timer:null,busy:false};
 function cacheKey(){return"lux_lib_"+(session?session.user.id:"local")}
@@ -33,7 +33,7 @@ function blankMeta(){const L=(latest()||{data:{meta:{}}}).data.meta;
   return{razon:"",cuit:"",direccion:"",localidad:"",provincia:"",cp:"",horarios:"",instrumento:L.instrumento||"Luxómetro",marca:L.marca||"",modelo:L.modelo||"",serie:L.serie||"",fechaCal:L.fechaCal||"",
     metodologia:METODO,fechaMed:today(),horaIni:"",horaFin:"",condiciones:"",cielo:"",temp:"",docCert:true,docCroquis:true,observaciones:"",
     profesional:L.profesional||"",matricula:L.matricula||"",evaluarMax:L.evaluarMax??true,prevFecha:""}}
-function blankMed(){return{updatedAt:Date.now(),meta:blankMeta(),puntos:[],conclusiones:"",recomendaciones:""}}
+function blankMed(){return{tipo:"ilum",updatedAt:Date.now(),meta:blankMeta(),puntos:[],conclusiones:"",recomendaciones:""}}
 function setSync(){
   const el=document.getElementById("syncSt");if(!el)return;
   if(view==="auth"||view==="recover"){el.textContent="";return}
@@ -130,16 +130,19 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 function render(){
   const m=$("#main"),inMed=view==="med"&&!!S;
   $("#tabs").hidden=!inMed;$("#hBack").hidden=!inMed;
-  $("#hdrTitle").textContent=inMed?(S.meta.razon||"Medición sin empresa"):"Protocolo de Iluminación";
+  const mod=inMed&&S.tipo&&MODS[S.tipo];
+  $("#hdrTitle").textContent=inMed?(S.meta.razon||"Estudio sin empresa"):"Estudios de Higiene y Seguridad";
+  const TL=mod?mod.tabs:["Datos","Medir","Análisis","Exportar"];$$("#tabs button").forEach((b,i)=>{b.lastChild.textContent=TL[i]});
   if(view==="auth")m.innerHTML=vAuth();
   else if(view==="recover")m.innerHTML=vRecover();
   else if(!inMed)m.innerHTML=vList();
+  else if(mod)m.innerHTML=mod.view(tab);
   else if(tab==="est")m.innerHTML=vEst();
   else if(tab==="pts")m.innerHTML=editing?vEditor(cur()):vPuntos();
   else if(tab==="con")m.innerHTML=vCon();
   else m.innerHTML=vExp();
   if(inMed&&tab==="pts"&&editing)wakeOn();else wakeOff();
-  if(view==="auth"||view==="recover")bindAuth();else if(!inMed)bindList();else bind();
+  if(view==="auth"||view==="recover")bindAuth();else if(!inMed)bindList();else{bind();if(mod)mod.bind(tab)}
   bindTop();setSync();
 }
 const cur=()=>S&&S.puntos.find(p=>p.id===editing);
@@ -294,7 +297,8 @@ function bind(){
   $$("[data-b]").forEach(el=>{
     const ev=(el.tagName==="SELECT"||el.type==="checkbox"||el.type==="time")?"change":"input";
     el.addEventListener(ev,()=>{let v=el.type==="checkbox"?el.checked:el.value;const path=el.dataset.b;if(path==="p.n")v=parseInt(v)||"";setPath(path,v);save();
-      if(["p.req","p.ilum","meta.evaluarMax"].includes(path))rerender();else if(path.startsWith("p."))updLive();
+      if(S.tipo&&MODS[S.tipo])MODS[S.tipo].change(path,el);
+      else if(["p.req","p.ilum","meta.evaluarMax"].includes(path))rerender();else if(path.startsWith("p."))updLive();
       if(path==="meta.razon")$("#hdrTitle").textContent=v});
   });
   $$("[data-d]").forEach(el=>el.addEventListener("input",e=>{
@@ -397,7 +401,29 @@ function autoText(){
 }
 
 /* ============ EXPORTAR ============ */
-function saveWorkbook(wb,filename){try{XLSX.writeFile(wb,filename);toast("Excel descargado")}catch(e){toast("No se pudo generar el archivo")}}
+/* Agrega a cada hoja: A4, ajustar al ancho de página y orientación (pages: "p"/"l" por hoja) */
+function withPageSetup(wb,pages){
+  const out=XLSX.write(wb,{bookType:"xlsx",type:"array"});
+  try{
+    const cfb=XLSX.CFB.read(new Uint8Array(out),{type:"array"}),enc=new TextEncoder(),dec=new TextDecoder();
+    wb.SheetNames.forEach((n,i)=>{
+      const e=XLSX.CFB.find(cfb,"/xl/worksheets/sheet"+(i+1)+".xml");if(!e)return;
+      let x=dec.decode(e.content);const o=(pages&&pages[i])==="l"?"landscape":"portrait";
+      const ps=`<pageSetup paperSize="9" orientation="${o}" fitToWidth="1" fitToHeight="0"/>`;
+      if(!/<sheetPr/.test(x))x=x.replace(/(<worksheet[^>]*>)/,'$1<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>');
+      if(/<pageMargins[^>]*\/>/.test(x))x=x.replace(/(<pageMargins[^>]*\/>)/,"$1"+ps);
+      else if(/<ignoredErrors/.test(x))x=x.replace(/<ignoredErrors/,'<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>'+ps+"<ignoredErrors");
+      else x=x.replace("</worksheet>",'<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>'+ps+"</worksheet>");
+      const b=enc.encode(x);e.content=b;e.size=b.length;
+    });
+    return XLSX.CFB.write(cfb,{fileType:"zip",type:"array"});
+  }catch(err){console.warn("pageSetup",err);return out}
+}
+function saveWorkbook(wb,filename,pages){
+  try{const data=withPageSetup(wb,pages);
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+    toast("Excel descargado")}catch(e){console.warn(e);toast("No se pudo generar el archivo")}
+}
 function doExport(fn){if(typeof XLSX==="undefined"){toast("El generador de Excel no cargó. Revisá la conexión y volvé a abrir la página.");return}fn()}
 async function dlOrig(){const ch=checks();if(ch.length&&!await ask(`Faltan ${ch.length} datos:\n• ${ch.slice(0,8).join("\n• ")}${ch.length>8?"\n…":""}\n\n¿Descargar igual?`,{ok:"Descargar igual"}))return;doExport(exportOriginal)}
 function rowsHoja2(){return S.puntos.map(p=>{const c=calc(p);return[p.n,p.hora||"",p.sector,p.puesto,String(p.tipoIlum).trim(),p.fuente,p.ilum,c.n>1?`${fmt(c.emin)} ≥ ${fmt(c.emed/2)}`:(c.n?"–":""),c.n?Math.round(c.emed*100)/100:"",reqStr(reqOf(p))]})}
@@ -435,7 +461,7 @@ function exportXLSX(){
     if(p.obs)an.push([`Obs.: ${p.obs}`]);an.push([])});
   const ws4=XLSX.utils.aoa_to_sheet(an);ws4["!cols"]=Array(12).fill({wch:12});if(ws4.A1)ws4.A1.s={font:{bold:true,sz:12}};
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws1,"Hoja 1 - Datos");XLSX.utils.book_append_sheet(wb,ws2,"Hoja 2 - Puntos");XLSX.utils.book_append_sheet(wb,ws3,"Hoja 3 - Análisis");XLSX.utils.book_append_sheet(wb,ws4,"Anexo lecturas");
-  saveWorkbook(wb,`Protocolo_Iluminacion_8412_${(m.razon||"empresa").replace(/[^A-Za-z0-9]+/g,"_")}_${m.fechaMed||""}.xlsx`);
+  saveWorkbook(wb,`Protocolo_Iluminacion_8412_${(m.razon||"empresa").replace(/[^A-Za-z0-9]+/g,"_")}_${m.fechaMed||""}.xlsx`,["p","l","p","p"]);
 }
 function exportOriginal(){
   const m=S.meta,T={style:"thin",color:{rgb:"000000"}},F=(sz=10,b=false)=>({name:"Roboto",sz,bold:b});
@@ -554,24 +580,27 @@ function bindAuth(){
 function vList(){
   const L=meds();
   return`
- <div class="row" style="margin-bottom:10px"><button class="btn p" id="newMed" style="flex:1;min-height:52px">＋ Nueva medición</button></div>
+ <div class="row" style="margin-bottom:10px"><button class="btn p" id="newMed" style="flex:1;min-height:52px">＋ Nuevo estudio</button></div>
  <div class="row" style="margin-bottom:14px">
-  <label class="btn sm" style="flex:1">Importar protocolo anterior (.xlsx)<input type="file" id="impX" accept=".xlsx,.xls" hidden></label>
+  <label class="btn sm" style="flex:1">Importar protocolo de iluminación (.xlsx)<input type="file" id="impX" accept=".xlsx,.xls" hidden></label>
   <label class="btn sm">Importar respaldo<input type="file" id="impJ" accept=".json,application/json" hidden></label></div>
- ${L.length?`<div class="mlist">${L.map(x=>{const d=x.data,tot=d.puntos.length,med=d.puntos.filter(p=>calc(p).n).length,st=d.puntos.map(status);
-   const bad=st.filter(s=>s.cls==="bad").length,warn=st.filter(s=>s.cls==="warn").length;
+ ${L.length?`<div class="mlist">${L.map(x=>{const d=x.data;let tot,med,bad,warn;
+   if(d.tipo&&MODS[d.tipo]){const su=MODS[d.tipo].summary(d);tot=su.tot;med=su.done;bad=su.bad;warn=su.warn}
+   else{const st=d.puntos.map(status);tot=d.puntos.length;med=d.puntos.filter(p=>calc(p).n).length;bad=st.filter(s=>s.cls==="bad").length;warn=st.filter(s=>s.cls==="warn").length}
+   const tipoTxt=d.tipo&&MODS[d.tipo]?MODS[d.tipo].nombre:"Iluminación",unidad=d.tipo==="fuego"?"sectores":d.tipo==="pat"?"tomas":"puntos";
    return`<div class="mcard"><div style="min-width:0"><div class="t">${esc(d.meta.razon||"Empresa sin nombre")}</div>
-     <div class="s">${fdate(d.meta.fechaMed)||"sin fecha"} · ${esc(d.meta.localidad||"")} · ${med}/${tot} puntos</div></div>
+     <div class="s"><b style="color:var(--acc)">${tipoTxt}</b> · ${fdate(d.meta.fechaMed)||"sin fecha"} · ${med}/${tot} ${unidad}</div></div>
      <div class="row" style="justify-content:flex-end">${bad?`<span class="pill bad">${bad} no cumplen</span>`:""}${warn?`<span class="pill warn">${warn} obs.</span>`:""}${tot&&med===tot&&!bad&&!warn?`<span class="pill ok">Cumple</span>`:""}</div>
      <div class="bar"><i style="width:${tot?Math.round(med/tot*100):0}%"></i></div>
-     <div class="acts"><button class="btn sm p" data-open="${x.id}">Abrir</button><button class="btn sm" data-rep="${x.id}">Repetir medición</button><button class="btn sm d" data-del="${x.id}">Eliminar</button></div></div>`}).join("")}</div>`
- :`<div class="card empty"><b>Todavía no tenés mediciones</b>Creá una nueva, o importá el Excel del protocolo del año anterior: la app toma la empresa, los puntos y los valores medidos para comparar.</div>`}
+     <div class="acts"><button class="btn sm p" data-open="${x.id}">Abrir</button><button class="btn sm" data-rep="${x.id}">Repetir estudio</button><button class="btn sm d" data-del="${x.id}">Eliminar</button></div></div>`}).join("")}</div>`
+ :`<div class="card empty"><b>Todavía no tenés estudios</b>Creá uno nuevo (iluminación, carga de fuego o puesta a tierra), o importá el Excel del protocolo de iluminación del año anterior para comparar.</div>`}
  <hr class="s">
  ${CLOUD?`<div class="row"><span class="muted" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">Sesión: ${esc(session&&session.user.email)}</span><button class="btn sm" id="logout">Cerrar sesión</button></div>`
  :`<div class="banner warn">Modo local: los datos quedan solo en este dispositivo. Para guardarlos en la nube configurá Supabase (ver README).</div>`}`;
 }
-function openMed(id){if(!lib[id])return;curId=id;S=lib[id].data;view="med";tab="pts";editing=null;$$("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.t==="pts"));render();scrollTo(0,0)}
+function openMed(id){if(!lib[id])return;curId=id;S=lib[id].data;Object.values(MODS).forEach(m=>m.reset());view="med";tab="pts";editing=null;$$("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.t==="pts"));render();scrollTo(0,0)}
 function repeatFrom(src){
+  if(src.tipo&&MODS[src.tipo])return MODS[src.tipo].repeat(src);
   const d=JSON.parse(JSON.stringify(src));const old=S;S=d;
   d.meta.prevFecha=d.meta.fechaMed;
   d.puntos.forEach(p=>{const c=calc(p);p.prev=c.n?{emed:c.emed,emin:c.emin}:p.prev;p.lect=[];p.hora="";p.egen="";p.id=uid()});
@@ -581,7 +610,9 @@ function repeatFrom(src){
 }
 function bindList(){
   const on=(id,fn)=>{const el=$("#"+id);if(el)el.onclick=fn};
-  on("newMed",()=>{const id=newId(),d=blankMed();putMed(id,d);openMed(id);go("est")});
+  on("newMed",async()=>{const r=await chooseNew();if(!r)return;const id=newId();const d=r.tipo==="ilum"?blankMed():MODS[r.tipo].nuevo();
+    if(r.from&&lib[r.from]){const sm=lib[r.from].data.meta;["razon","cuit","direccion","localidad","provincia","cp","horarios"].forEach(k=>{d.meta[k]=sm[k]||""})}
+    putMed(id,d);openMed(id);go(r.from?"pts":"est")});
   on("logout",async()=>{if(Object.values(lib).some(x=>x.dirty)&&!await ask("Hay cambios que todavía no se subieron a la nube. Si cerrás sesión ahora quedan guardados en este teléfono y se suben la próxima vez que ingreses.",{ok:"Cerrar sesión"}))return;await sb.auth.signOut()});
   $$("[data-open]").forEach(b=>b.onclick=()=>openMed(b.dataset.open));
   $$("[data-rep]").forEach(b=>b.onclick=()=>{const src=lib[b.dataset.rep];const id=newId();putMed(id,repeatFrom(src.data));openMed(id);go("est");toast("Nueva medición creada con los valores anteriores para comparar")});
@@ -589,6 +620,22 @@ function bindList(){
     x.deleted=true;x.dirty=true;x.updatedAt=Date.now();x.data.updatedAt=x.updatedAt;writeCache();schedulePush(300);render()});
   const ij=$("#impJ");if(ij)ij.onchange=()=>{const f=ij.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!valid(d))throw 0;d.updatedAt=Date.now();const id=newId();putMed(id,d);openMed(id);toast("Respaldo importado")}catch(e){toast("El archivo no es un respaldo válido")}};r.readAsText(f)};
   const ix=$("#impX");if(ix)ix.onchange=()=>{const f=ix.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=importProtocol(r.result);const id=newId();putMed(id,d);openMed(id);go("est");toast(`Importado: ${d.puntos.length} puntos`)}catch(e){console.warn(e);toast(e&&e.userMsg||"No pude leer ese Excel. ¿Es un protocolo de iluminación?")}};r.readAsArrayBuffer(f)};
+}
+
+function chooseNew(){
+  return new Promise(res=>{
+    const emp={};meds().forEach(x=>{const k=(x.data.meta.razon||"").trim();if(k&&!emp[k])emp[k]=x.id});
+    const s=document.createElement("div");s.className="scrim";
+    s.innerHTML=`<div class="dlg" role="dialog" aria-modal="true"><p style="font-weight:700;font-size:17px;margin-bottom:10px">Nuevo estudio</p>
+     ${Object.keys(emp).length?`<label class="f" style="margin-bottom:12px"><span>Empresa</span><select id="nEmp"><option value="">Empresa nueva (cargar datos)</option>${Object.entries(emp).map(([k,id])=>`<option value="${id}">${esc(k)}</option>`).join("")}</select></label>`:""}
+     <div class="stack">
+      <button class="btn p wide" data-t="ilum" style="justify-content:flex-start;min-height:56px;text-align:left">💡 Iluminación<span style="font-weight:400;opacity:.85;margin-left:auto;font-size:13px">Res. SRT 84/12</span></button>
+      <button class="btn p wide" data-t="fuego" style="justify-content:flex-start;min-height:56px;text-align:left">🔥 Carga de fuego<span style="font-weight:400;opacity:.85;margin-left:auto;font-size:13px">Dec. 351/79 Anexo VII</span></button>
+      <button class="btn p wide" data-t="pat" style="justify-content:flex-start;min-height:56px;text-align:left">⚡ Puesta a tierra<span style="font-weight:400;opacity:.85;margin-left:auto;font-size:13px">Res. SRT 900/15</span></button>
+      <button class="btn wide" data-t="">Cancelar</button></div></div>`;
+    s.addEventListener("click",e=>{const b=e.target.closest("[data-t]");if(b||e.target===s){const sel=$("#nEmp",s);s.remove();res(b&&b.dataset.t?{tipo:b.dataset.t,from:sel?sel.value:""}:null)}});
+    document.body.appendChild(s);
+  });
 }
 
 /* ============ IMPORTAR PROTOCOLO ANTERIOR (.xlsx) ============ */
